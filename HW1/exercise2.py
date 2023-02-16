@@ -7,17 +7,23 @@ def g(x1, x2):
 
     return (term1 + term2) / 6
 
+def g_quiz(x1, x2):
+    term1 = 2 * x1 * x1
+    term2 = 2*x1 * x2
+    term3 = 2 * x2 * x2
+    return (term1 - term2 + term3) / 3
+
 def f(x1, x2):
     coef = 1 / np.sqrt((2 * np.pi) ** 2 * np.sqrt(10))
-    return coef * np.exp(-g(x1, x2))
+    return coef * np.exp(-g_quiz(x1, x2))
 
 def f_temp(x1, x2):
     return x1 + x2
 
 def parta():
     density = 1000
-    x1s = np.linspace(-1, 6, density)
-    x2s = np.linspace(0, 10, density)
+    x1s = np.linspace(-5, 5, density)
+    x2s = np.linspace(-5, 5, density)
     X1s, X2s = np.meshgrid(x1s, x2s)
 
     ys = []
@@ -36,7 +42,9 @@ def parta():
     fig, ax = plt.subplots()
     cs = ax.contour(X1s, X2s, ys, 6)
     ax.clabel(cs, inline=True, fontsize=10)
-    plt.savefig('figures/2-1-ii.png')
+    ax.set_xlim((-5, 5))
+    ax.set_ylim((-5, 5))
+    plt.savefig('figures/2-1-ii-quiz.png')
     plt.show()
 
 def partc():
@@ -58,8 +66,8 @@ def partc():
     
 
 def main():
-    # parta()
-    partc()
+    parta()
+    # partc()
 
 if __name__ == '__main__':
     main()

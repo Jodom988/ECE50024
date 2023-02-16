@@ -22,13 +22,13 @@ def partb():
     xs = np.array(np.linspace(-3, 3, 100))
     pdf = sp.stats.norm.pdf(xs, loc=0, scale=1)
     
-    ax1 = plt.subplot(2, 1, 1)
-    ax1.hist(rand_vals, bins=4, density=True)
+    ax1 = plt.subplot(1, 1, 1)
+    ax1.hist(rand_vals, bins=15, density=True)
     ax1.plot(xs, pdf)
 
-    ax2 = plt.subplot(2, 1, 2)
-    ax2.hist(rand_vals, bins=1000, density=True)
-    ax2.plot(xs, pdf)
+    # ax2 = plt.subplot(2, 1, 2)
+    # ax2.hist(rand_vals, bins=15, density=True)
+    # ax2.plot(xs, pdf)
 
     # plt.show()
     plt.savefig("figures/1-b.png")
@@ -45,13 +45,14 @@ def partc():
 
     best_j = min(js)
     best_bin_count = bin_counts[np.where(js == best_j)[0][0]]
+    print(best_bin_count)
 
     print("Number of bins: %d " % best_bin_count)
 
     plt.plot(bin_counts, js)
     plt.plot([best_bin_count], [best_j], 'or')
     plt.savefig("figures/1-c-i.png")
-    plt.show()
+    # plt.show()
 
     mu, std_dev = sp.stats.norm.fit(rand_vals)
     print(mu, std_dev)
@@ -64,7 +65,9 @@ def partc():
     ax1.plot(xs, pdf)
 
     plt.savefig("figures/1-c-ii.png")
-    plt.show()
+    # plt.show()
+
+    return best_bin_count
 
 def j(data, num_bins):
     '''
@@ -98,7 +101,9 @@ def j(data, num_bins):
     return t1 - (t2 * t2_sum)
 
 def main():
-    partc()
+    partb()
+    # bin_counts = [partc() for _ in range(50)]
+    # print(np.mean(bin_counts))
 
 if __name__ == '__main__':
     main()
