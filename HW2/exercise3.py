@@ -34,10 +34,11 @@ def part_a_to_b():
     # plt.show()
 
 
-    test_data = load_train_data()
+    test_data = load_test_data()
+    print(test_data)
     normalize_data(test_data)
 
-    xs = np.array([np.array(test_data['stature_normalized']), np.array(test_data['bmi_normalized']), np.array([1 for _ in range(data.shape[0])]) ])
+    xs = np.array([np.array(test_data['stature_normalized']), np.array(test_data['bmi_normalized']), np.array([1 for _ in range(test_data.shape[0])]) ])
     xs = np.matrix.transpose(xs)
     predictions = np.matmul(xs, weights)
     test_data['predictions'] = predictions
@@ -54,20 +55,20 @@ def part_a_to_b():
     # Male Type 1 error: Pct of samples that should be female but were predicted male (false positives of male)
     fp = test_data[test_data['class_predictions'] == 'male']
     fp = fp[fp['gender'] == 'female']
-    print("Type 1: %.2f%%" % (100 * fp.shape[0] / test_data.shape[0]))
+    print("Type 1: \t%.2f%%" % (100 * fp.shape[0] / test_data.shape[0]))
 
     # Male Type 2 error: Pct of samples that should be male but were predicted as female
     fn = test_data[test_data['class_predictions'] == 'female']
     fn = fn[fn['gender'] == 'male']
-    print("Type 2: %.2f%%" % (100 * fn.shape[0] / test_data.shape[0]))
+    print("Type 2: \t%.2f%%" % (100 * fn.shape[0] / test_data.shape[0]))
 
     # Precision: true positives / (true positives + false positives)
     tp = test_data[test_data['class_predictions'] == 'male']
     tp = tp[tp['gender'] == 'male']
-    print("Precision: %.2f%%" % (100 * tp.shape[0] / (tp.shape[0] + fp.shape[0])))
+    print("Precision:\t%.2f%%" % (100 * tp.shape[0] / (tp.shape[0] + fp.shape[0])))
 
     # Recall: true positives / (true positives + false negatives)
-    print("Precision: %.2f%%" % (100 * tp.shape[0] / (tp.shape[0] + fn.shape[0])))
+    print("Recall: \t%.2f%%" % (100 * tp.shape[0] / (tp.shape[0] + fn.shape[0])))
 
 def main():
     part_a_to_b()
