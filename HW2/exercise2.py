@@ -107,8 +107,8 @@ def part_e_to_h():
     
 def main():
     # part_a_to_b()
-    # part_c()
-    part_e_to_h()
+    part_c()
+    # part_e_to_h()
     pass
 
 if __name__ == '__main__':
