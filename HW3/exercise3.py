@@ -13,7 +13,7 @@ def get_likelihood(mu, sigma, sigma_inv, log_sigma, log_pi, x):
 
     return term1 + term2 + term3
 
-def partb(predict_img, ground_truth_img):
+def partb_c(predict_img, ground_truth_img):
     train_cat = np.matrix(np.loadtxt('data/train_cat.txt', delimiter=','))
     train_grass = np.matrix(np.loadtxt('data/train_grass.txt', delimiter=','))
 
@@ -131,7 +131,11 @@ def partd(predict_img, ground_truth_img):
 
     detections = list()
     false_alarms = list()
-    for tau in tqdm(np.linspace(-1, 1, 100)):
+    taus = list(np.linspace(-1, 1, 100))
+    taus.append(1)
+    one_idx = 0
+    taus.sort()
+    for tau in tqdm(taus):
         prediction = np.zeros((M-8,N-8))
         for i in range((M-8)):
             for j in range((N-8)):
@@ -171,11 +175,14 @@ def partd(predict_img, ground_truth_img):
 
         # print("True Positives: %d" % true_positives)
         # print("False Positives: %d" % false_positives)
-
+        if tau == 1:
+            one_idx = len(detections)
         detections.append(true_positives / tot_positives_in_ground_truth)
         false_alarms.append(false_positives / tot_negs_in_ground_truth)
 
     plt.plot(false_alarms, detections)
+    plt.plot(false_alarms[one_idx], detections[one_idx], 'ro')
+    plt.savefig('part3-d.png')
     plt.show()
 
     
@@ -194,8 +201,8 @@ def get_mu_sigma(data):
 def main():
     predict_img = 'data/cat_grass.jpg'
     ground_truth_img = 'data/truth.png'
-    # partb(predict_img, ground_truth_img)
-    partd(predict_img, ground_truth_img)
+    partb_c(predict_img, ground_truth_img)
+    # partd(predict_img, ground_truth_img)
 
 if __name__ == '__main__':
     main()

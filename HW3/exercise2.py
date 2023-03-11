@@ -35,7 +35,7 @@ def partc_e(predict_img, ground_truth_img):
     log_pi_1 = np.log(pi_1)
     log_pi_0 = np.log(pi_0)
 
-    img = plt.imread(predict_img) / 255
+    img = plt.imread(predict_img)[:, :, 0] / 255
     M,N = img.shape
     prediction = np.zeros((M-8,N-8))
     for i in tqdm(range((M-8))):
@@ -102,8 +102,8 @@ def partb():
 
 def main():
     # partb()
-    partc_e('data/cat_grass.jpg', 'data/truth.png')
-    #partc_e('data/my_image.jpg', None)
+    # partc_e('data/cat_grass.jpg', 'data/truth.png')
+    partc_e('data/my_image.jpg', None)
 
 
 
