@@ -1,0 +1,263 @@
+Overall notes:
+    Was training naive_trial 1 and 2 with distorted/stretched images, for trial 3 fixed this
+    Batch sizes should be < 32 and powers of 2. Was doing huuuge batches for 1-3, fixed with 4
+
+    From cropping: Train data had .108337 without faces found, test data had 0.106557 without faces found
+
+transfer_1:
+    def get_model():
+        vggface_base = VGGFace(model='resnet50', include_top=False, input_shape=IM_SIZE)
+        vggface_base.trainable = False
+
+        last_layer = vggface_base.get_layer('avg_pool').output
+
+        # # Build the model
+        inputs = tf.keras.Input(shape=IM_SIZE)
+        x = vggface_base(inputs)
+        x = layers.Flatten(name='flatten')(x)
+        out = layers.Dense(100, name='Classifier')(x)
+        model = keras.Model(inputs, out)
+        
+        model.summary()
+
+        model.compile(optimizer='adam',
+                loss=tf.keras.losses.CategoricalCrossentropy(),
+                metrics=['accuracy'])
+        
+        return model
+
+transfer_2:
+    Same as transfer 1, but with bigger model
+
+transfer_3:
+    Filtering so only using faces with label [0, 9] inclusive
+
+cropped_1:
+    Using copped data for this run, doing 128x128 B/W images 
+
+cropped_2:
+    Using extended cropped data fro this run, doing 128x128 B/W images
+
+    def get_model():
+        model = models.Sequential()
+        model.add(layers.Conv2D(64, (3, 3), activation='relu', input_shape=IM_SIZE))
+        model.add(layers.MaxPooling2D((3, 3)))
+        model.add(layers.Conv2D(256, (3, 3), activation='relu'))
+        model.add(layers.MaxPooling2D((3, 3)))
+        model.add(layers.Conv2D(512, (3, 3), activation='relu'))
+        model.add(layers.MaxPooling2D((3, 3)))
+
+        model.add(layers.Flatten())
+        
+        model.add(layers.Dense(2048, activation='relu'))
+        model.add(layers.Dense(1024, activation='relu'))
+        model.add(layers.Dense(100, activation='relu'))
+
+        model.summary()
+
+        model.compile(optimizer='adam',
+                loss=tf.keras.losses.CategoricalCrossentropy(),
+                metrics=['accuracy'])
+
+        return model
+
+naive_trial1:
+    Used 128x128 B/W image
+    Used batch size of 1024, had an error where it ran out of memory
+
+    def get_model():
+        model = models.Sequential()
+        model.add(layers.Conv2D(64, (5, 5), activation='relu', input_shape=IM_SIZE))
+        model.add(layers.MaxPooling2D((3, 3)))
+        model.add(layers.Conv2D(128, (3, 3), activation='relu'))
+        model.add(layers.MaxPooling2D((3, 3)))
+        model.add(layers.Conv2D(256, (3, 3), activation='relu'))
+        model.add(layers.MaxPooling2D((3, 3)))
+
+        model.add(layers.Flatten())
+        model.add(layers.Dense(256, activation='relu'))
+        model.add(layers.Dense(100, activation='relu'))
+
+        model.summary()
+
+        model.compile(optimizer='adam',
+                loss=tf.keras.losses.CategoricalCrossentropy(),
+                metrics=['accuracy'])
+
+        return model
+
+naive_trial2:
+    Used 256x256 BW image
+    Used batch size of 256
+
+    def get_model():
+        model = models.Sequential()
+        model.add(layers.Conv2D(32, (5, 5), activation='relu', input_shape=IM_SIZE))
+        model.add(layers.MaxPooling2D((3, 3)))
+        model.add(layers.Conv2D(64, (3, 3), activation='relu'))
+        model.add(layers.MaxPooling2D((3, 3)))
+
+        model.add(layers.Flatten())
+        model.add(layers.Dense(256, activation='relu'))
+        model.add(layers.Dense(100, activation='relu'))
+
+        model.summary()
+
+        model.compile(optimizer='adam',
+                loss=tf.keras.losses.CategoricalCrossentropy(),
+                metrics=['accuracy'])
+
+        return model
+
+naive_trial3:
+    Used 256x256 BW image
+    Used batch size of 1024
+    
+    def get_model():
+        model = models.Sequential()
+        model.add(layers.Conv2D(64, (5, 5), activation='relu', input_shape=IM_SIZE))
+        model.add(layers.MaxPooling2D((3, 3)))
+        model.add(layers.Conv2D(128, (3, 3), activation='relu'))
+        model.add(layers.MaxPooling2D((3, 3)))
+
+        model.add(layers.Flatten())
+        model.add(layers.Dense(256, activation='relu'))
+        model.add(layers.Dense(100, activation='relu'))
+
+        model.summary()
+
+        model.compile(optimizer='adam',
+                loss=tf.keras.losses.CategoricalCrossentropy(),
+                metrics=['accuracy'])
+
+        return model 
+
+naive_trial4:
+    Same as trial 3 but with batch size of 64
+
+naive_trial5:
+    Continuation of naive_trial4, but with batch size of 32
+
+naive_trial6:
+    def get_model():
+    model = models.Sequential()
+    model.add(layers.Conv2D(64, (5, 5), activation='relu', input_shape=IM_SIZE))
+    model.add(layers.MaxPooling2D((3, 3)))
+    model.add(layers.Conv2D(128, (3, 3), activation='relu'))
+    model.add(layers.MaxPooling2D((3, 3)))
+
+    model.add(layers.Flatten())
+    model.add(layers.Dense(256, activation='relu'))
+    model.add(layers.Dense(100, activation='relu'))
+
+    model.summary()
+
+    model.compile(optimizer='adam',
+            loss=tf.keras.losses.CategoricalCrossentropy(),
+            metrics=['accuracy'])
+
+    return model 
+
+naive_trial7:
+    Used batch size of 32
+    
+    def get_model():
+        model = models.Sequential()
+        model.add(layers.Conv2D(64, (5, 5), activation='relu', input_shape=IM_SIZE))
+        model.add(layers.MaxPooling2D((3, 3)))
+        model.add(layers.Conv2D(128, (3, 3), activation='relu'))
+        model.add(layers.MaxPooling2D((3, 3)))
+        model.add(layers.Conv2D(256, (3, 3), activation='relu'))
+        model.add(layers.MaxPooling2D((3, 3)))
+
+        model.add(layers.Flatten())
+        model.add(layers.Dense(256, activation='relu'))
+        model.add(layers.Dense(100, activation='relu'))
+
+        model.summary()
+
+        model.compile(optimizer='adam',
+                loss=tf.keras.losses.CategoricalCrossentropy(),
+                metrics=['accuracy'])
+
+        return model 
+
+naive_trial8:
+    batch size of 16
+    def get_model():
+        model = models.Sequential()
+        model.add(layers.Conv2D(64, (3, 3), activation='relu', input_shape=IM_SIZE))
+        model.add(layers.Conv2D(64, (3, 3), activation='relu', input_shape=IM_SIZE))
+        model.add(layers.MaxPooling2D((3, 3)))
+        model.add(layers.Conv2D(128, (3, 3), activation='relu'))
+        model.add(layers.Conv2D(128, (3, 3), activation='relu'))
+        model.add(layers.MaxPooling2D((3, 3)))
+        model.add(layers.Conv2D(256, (3, 3), activation='relu'))
+        model.add(layers.Conv2D(256, (3, 3), activation='relu'))
+        model.add(layers.MaxPooling2D((3, 3)))
+
+        model.add(layers.Flatten())
+        model.add(layers.Dense(1024, activation='relu'))
+        model.add(layers.Dense(100, activation='relu'))
+
+        model.summary()
+
+        model.compile(optimizer='adam',
+                loss=tf.keras.losses.CategoricalCrossentropy(),
+                metrics=['accuracy'])
+
+        return model 
+
+naive_trial9:
+    Made samples come in same order as in CSV file (CSV file already random)
+    Retrained model on samples it's already seen to avoid catestrophic forgetting (didn't work)
+    def get_model():
+        model = models.Sequential()
+        model.add(layers.Conv2D(64, (3, 3), activation='relu', input_shape=IM_SIZE))
+        model.add(layers.Conv2D(64, (3, 3), activation='relu', input_shape=IM_SIZE))
+        model.add(layers.MaxPooling2D((3, 3)))
+        model.add(layers.Conv2D(128, (3, 3), activation='relu'))
+        model.add(layers.Conv2D(128, (3, 3), activation='relu'))
+        model.add(layers.MaxPooling2D((3, 3)))
+        model.add(layers.Conv2D(256, (3, 3), activation='relu'))
+        model.add(layers.Conv2D(256, (3, 3), activation='relu'))
+        model.add(layers.MaxPooling2D((3, 3)))
+
+        model.add(layers.Flatten())
+        model.add(layers.Dense(1024, activation='relu'))
+        model.add(layers.Dense(100, activation='relu'))
+
+        model.summary()
+
+        model.compile(optimizer='adam',
+                loss=tf.keras.losses.CategoricalCrossentropy(),
+                metrics=['accuracy'])
+
+        return model
+
+naive_trial10:
+    Went back to image size of 128x128
+    Training on samples model has already seen to avoid catestrophic forgetting
+    Using model from trial 1
+    batch size of 32
+    def get_model():
+        model = models.Sequential()
+        model.add(layers.Conv2D(64, (5, 5), activation='relu', input_shape=IM_SIZE))
+        model.add(layers.MaxPooling2D((3, 3)))
+        model.add(layers.Conv2D(128, (3, 3), activation='relu'))
+        model.add(layers.MaxPooling2D((3, 3)))
+        model.add(layers.Conv2D(256, (3, 3), activation='relu'))
+        model.add(layers.MaxPooling2D((3, 3)))
+
+        model.add(layers.Flatten())
+        model.add(layers.Dense(256, activation='relu'))
+        model.add(layers.Dense(100, activation='relu'))
+
+        model.summary()
+
+        model.compile(optimizer='adam',
+                loss=tf.keras.losses.CategoricalCrossentropy(),
+                metrics=['accuracy'])
+
+        return model
+
