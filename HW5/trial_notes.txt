@@ -2,9 +2,11 @@ Overall notes:
     Was training naive_trial 1 and 2 with distorted/stretched images, for trial 3 fixed this
     Batch sizes should be < 32 and powers of 2. Was doing huuuge batches for 1-3, fixed with 4
 
-    From cropping: Train data had .108337 without faces found, test data had 0.106557 without faces found
+    From cropping center/largest strats: Train missed 10.8337%, test missed 10.6557%
+    From cropping single strat: Train missed 24.9515%, test missed 25.2013%
 
 transfer_1:
+    Done with cropped closest dataset
     def get_model():
         vggface_base = VGGFace(model='resnet50', include_top=False, input_shape=IM_SIZE)
         vggface_base.trainable = False
@@ -30,7 +32,13 @@ transfer_2:
     Same as transfer 1, but with bigger model
 
 transfer_3:
-    Filtering so only using faces with label [0, 9] inclusive
+    Same as tranasfer_1
+
+transfer_4:
+    Same as transfer_1 but using cropped_largest dataset
+
+transfer_5:
+    Same as transfer_1 but using cropped_single dataset
 
 cropped_1:
     Using copped data for this run, doing 128x128 B/W images 

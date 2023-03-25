@@ -87,13 +87,18 @@ CLASSIFIER = cv2.CascadeClassifier('models/haar_cascade/haarcascade_frontalface2
 DETECTOR = dlib.get_frontal_face_detector()     # Has about 11% cases where it fails to detect a face
 
 # Expects an openCV image and returns the bounding box of the face (x1, y1, w, h)
-def get_face_bounds(img, extend=0.50):
+def get_face_bounds(img, extend=0.50, policy='closest_to_center'):
     #faces = CLASSIFIER.detectMultiScale(img)
+
+    policies = ['closest_to_center', 'largest', 'single']
+    if policy not in policies:
+        raise Exception("Invalid policy: {}".format(policy))
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     faces = DETECTOR(gray, 1) # results
 
     closest_dist = None
+    biggest_size = None
     best_result = None
     for result in faces:
         x1 = result.left()
@@ -106,20 +111,39 @@ def get_face_bounds(img, extend=0.50):
         x2 += int(extend * w)
         y1 += int(-extend * h)
         y2 += int(extend * h)
+        w = x2 - x1
+        h = y2 - y1
 
         result = (x1, y1, x2-x1, y2-y1)
         curr_center = getResultCenter(result)
-        
+        curr_size = w * h
+
         dist = getDistToCenter(curr_center, img)
-        if best_result is None or dist < closest_dist:
-            closest_dist = dist
-            best_result = result
+        if policy == 'largest':
+            if biggest_size is None or curr_size > biggest_size:
+                biggest_size = curr_size
+                best_result = result
+        elif policy == 'closest_to_center':
+            if best_result is None or dist < closest_dist:
+                closest_dist = dist
+                best_result = result
+        elif policy == 'single':
+            if len(faces) == 1:
+                return result
+            else:
+                return None
+        else:
+            raise Exception("Unknown policy: {}".format(policy))
 
     return best_result
 
 # Expects an openCV image and returns a new image with the face cropped and resized to 128x128, returns None if no face found
-def extract_face(img):
-    bounding_box = get_face_bounds(img)
+def extract_face(img, policy = 'closest_to_center'):
+    policies = ['closest_to_center', 'largest', 'single']
+    if policy not in policies:
+        raise Exception("Invalid policy: {}".format(policy))
+    
+    bounding_box = get_face_bounds(img, policy=policy)
 
     if bounding_box is None:
         return None
