@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import cvxpy as cvx
 
-LAMBDA = 0.0001
+LAMBDA = 0.01
 
 def get_data(fname):
     with open(fname, "r") as f:
@@ -15,11 +15,21 @@ def get_data(fname):
     
     return np.hstack((x1, x2))
 
+def get_quiz_data(fname):
+    with open(fname, "r") as f:
+        data = f.readlines()
+    data = [x.strip() for x in data]
+    data = [x.split(" ") for x in data]
+    x1 = np.array([float(x[0]) for x in data]).reshape((len(data), 1))
+    x2 = np.array([float(x[1]) for x in data]).reshape((len(data), 1))
+    
+    return np.hstack((x1, x2))
+
 def exb_to_c():
 
     # Get the data
-    class0 = get_data("homework4_class0.txt")
-    class1 = get_data("homework4_class1.txt")
+    class0 = get_quiz_data("quiz_data/quiz4_class0.txt")
+    class1 = get_quiz_data("quiz_data/quiz4_class1.txt")
     y0 = np.zeros((class0.shape[0], 1))
     y1 = np.ones((class1.shape[0], 1))
 
@@ -49,7 +59,7 @@ def exb_to_c():
     plt.scatter(class1[:, 0], class1[:, 1], color="blue")
     plt.plot(xs, ys, color="black")
     plt.savefig("2-c.png")
-    plt.show()
+    # plt.show()
 
 def get_mu_sigma(data):
     mu = np.mean(data, axis=0)
@@ -105,8 +115,8 @@ def exd():
     plt.show()
 
 def main():
-    # exb_to_c()
-    exd()
+    exb_to_c()
+    # exd()
 
 if __name__ == "__main__":
     main()

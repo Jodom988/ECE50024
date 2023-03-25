@@ -1,4 +1,4 @@
-from exercise2 import get_data
+from exercise2 import get_data, get_quiz_data
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -44,6 +44,9 @@ def ex_c():
     # Import the data
     class0 = get_data("homework4_class0.txt")
     class1 = get_data("homework4_class1.txt")
+    
+    class0 = get_quiz_data("quiz_data/quiz4_class0.txt")
+    class1 = get_quiz_data("quiz_data/quiz4_class1.txt")
     y0 = np.zeros((class0.shape[0], 1))
     y1 = np.ones((class1.shape[0], 1))
     
@@ -62,6 +65,8 @@ def ex_c():
             K[r, c] = kernel_func(row_data_pt, col_data_pt)
 
     # Format the problem
+    K = cvx.psd_wrap(K)
+
     alpha = cvx.Variable((data.shape[0], 1))
     t1 = y.T @ K @ alpha
     print("t1 shape: ", t1.shape)   # Prints (1, 1)
