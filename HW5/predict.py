@@ -7,23 +7,25 @@ import tensorflow as tf
 import numpy as np
 import cv2
 
-from common import extract_face, pil_to_cv2, cv2_to_pil, label_name_mapping
+from common import extract_best_face, extract_all_faces, pil_to_cv2, cv2_to_pil, label_name_mapping
 
 IM_SIZE = (224, 224, 3)
 
-def load_normalize_img(path):
+def load_normalize_img(path, policy):
     if (os.path.exists(path) == False):
         print("ERROR: Path does not exist: " + path)
         return None
 
-    img = Image.open(path)
+    original_img = Image.open(path)
+    img = pil_to_cv2(original_img)
 
-    img = pil_to_cv2(img)
-    face = extract_face(img)
-    if face is not None:
-        img = cv2_to_pil(face)
-        img = img.resize((IM_SIZE[0], IM_SIZE[1]))
-    elif face is None:
+    face = None
+    if policy == 'multiple':
+        face = extract_all_faces(img)
+    else:
+        face = extract_best_face(img, policy=policy)
+    
+    if face is None:
         # Could not extract face, just use original image
         img = cv2_to_pil(img)
         width, height = img.size
@@ -40,34 +42,78 @@ def load_normalize_img(path):
         v_border = (IM_SIZE[1] - new_height) // 2
         img = ImageOps.expand(img, border=(h_border, v_border, h_border, v_border), fill=(0, 0, 0))
         img = img.resize((IM_SIZE[0], IM_SIZE[1]))
+        return [img]
+    
+    imgs = None
+    if policy == 'multiple':
+        imgs = [cv2_to_pil(f) for f in face]
+        imgs = [img.resize((IM_SIZE[0], IM_SIZE[1])) for img in imgs]
+    else:
+        img = cv2_to_pil(face)
+        img = img.resize((IM_SIZE[0], IM_SIZE[1]))
 
-    # if face is None:
-    #     cv2.imshow("img", img)
+        imgs = [img]
+
+    # if face is not None:
+    #     cv2.imshow("img", imgs)
     #     cv2.waitKey(0)
     #     cv2.destroyAllWindows()
 
     # save image
     # img.save("tmp.png")
 
-    return img
-
-def load_imgs(img_dir):
-    imgs = list()
-    for img_name in tqdm(os.listdir(img_dir), desc="Loading images"):
-        img_path = os.path.join(img_dir, img_name)
-        # print(img_path)
-
-        img = load_normalize_img(img_path)
-        img = np.array(img)
-            
-        img_name = os.path.splitext(img_name)[0]
-        imgs.append((img, img_name))
+    # if len(imgs) > 1:
+    #     print("Found %d faces" % len(imgs))
+    #     original_img.save("tmp.png")
+    #     input()
+    #     for img in imgs:
+    #         img.save("tmp.png")
+    #         input()
+    
 
     return imgs
 
-def make_predictions(faces, model, out_csv):
+def load_imgs(img_dir, policy):
+    data = list()
+    files = os.listdir(img_dir)
+    for img_name in tqdm(files, desc="Loading images"):
+        img_path = os.path.join(img_dir, img_name)
+        # print(img_path)
 
-    imgs = [img for img, img_name in faces]
+        imgs = load_normalize_img(img_path, policy)
+        imgs = [np.array(img) for img in imgs]
+            
+        img_name = os.path.splitext(img_name)[0]
+        data.append((imgs, img_name))
+
+    return data
+
+def make_predictions_mult(faces, model):
+
+    img_names = list()
+    names = list()
+    label_to_name = label_name_mapping()
+
+    for i in tqdm(range(len(faces)), desc="Making predictions"):
+        imgs, img_name = faces[i]
+
+        imgs = np.array(imgs)
+        predictions = model.predict(imgs, verbose=3)
+
+        class_predictions = np.argmax(predictions, axis=1)
+        confidence = np.max(predictions, axis=1)
+        best_idx = np.argmax(confidence)
+        class_prediction = class_predictions[best_idx]
+
+        img_names.append(int(img_name))
+        names.append(label_to_name[class_prediction])
+
+    return img_names, names
+
+
+def make_predictions_single(faces, model):
+
+    imgs = [img[0] for img, img_name in faces]
     img_names = [int(img_name) for img, img_name in faces]
 
     if (len(imgs) != len(img_names)):
@@ -85,6 +131,10 @@ def make_predictions(faces, model, out_csv):
     for i in range(len(class_predictions)):
         names.append(label_to_name[class_predictions[i]])
 
+    return img_names, names
+
+
+def write_predictions(img_names, names, out_csv):
     # sort img_names array
     for i in range(len(img_names)):
         for j in range(len(img_names)):
@@ -92,6 +142,7 @@ def make_predictions(faces, model, out_csv):
                 img_names[i], img_names[j] = img_names[j], img_names[i]
                 names[i], names[j] = names[j], names[i]
     
+    # Write to file
     with open(out_csv, 'w') as f:
         f.write("Id,Category\n")
         for i in range(len(img_names)):
@@ -102,14 +153,24 @@ def main():
     parser.add_argument('img_dir', help='Directory with images')
     parser.add_argument('model_dir', help='Directory with model')
     parser.add_argument('out_csv', help='CSV File containing predicted labels')
+    parser.add_argument('policy', help='Policy for face extraction (multiple, closest_to_center, largest, single)')
     args = parser.parse_args()
 
-    faces = load_imgs(args.img_dir)
+    if args.policy not in ['multiple', 'closest_to_center', 'largest', 'single']:
+        print("ERROR: Invalid policy")
+        return
+    
+    faces = load_imgs(args.img_dir, args.policy)
 
     model = tf.keras.models.load_model(args.model_dir)
     model.summary()
 
-    make_predictions(faces, model, args.out_csv)
+    if args.policy == 'multiple':
+        img_name, name_precition = make_predictions_mult(faces, model)
+    else:
+        img_name, name_precition = make_predictions_single(faces, model)
+
+    write_predictions(img_name, name_precition, args.out_csv)
 
 
 if __name__ == "__main__":

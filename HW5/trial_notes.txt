@@ -5,7 +5,7 @@ Overall notes:
     From cropping center/largest strats: Train missed 10.8337%, test missed 10.6557%
     From cropping single strat: Train missed 24.9515%, test missed 25.2013%
 
-transfer_1:
+transfer_vgg_1:
     Done with cropped closest dataset
     def get_model():
         vggface_base = VGGFace(model='resnet50', include_top=False, input_shape=IM_SIZE)
@@ -28,17 +28,18 @@ transfer_1:
         
         return model
 
-transfer_2:
+transfer_vgg_2:
     Same as transfer 1, but with bigger model
 
-transfer_3:
+transfer_vgg_3:
     Same as tranasfer_1
 
-transfer_4:
+transfer_vgg_4:
     Same as transfer_1 but using cropped_largest dataset
 
-transfer_5:
+transfer_vgg_5:
     Same as transfer_1 but using cropped_single dataset
+    Best one yet!! Max accurracy of 36% with test dataset, submitted to Kaggle and got 29.6%
 
 cropped_1:
     Using copped data for this run, doing 128x128 B/W images 
