@@ -5,6 +5,14 @@ Overall notes:
     From cropping center/largest strats: Train missed 10.8337%, test missed 10.6557%
     From cropping single strat: Train missed 24.9515%, test missed 25.2013%
 
+predictions-deepface-vgg:
+    Submitted and got ~52% accuracy
+    Used deepface's VGGFace model with ~200 imgs/person in DB
+
+predictions-deepface-facenet:
+    Need to submit
+    Used deepface's Facenet model with every img/person in DB
+
 transfer_vgg_1:
     Done with cropped closest dataset
     def get_model():
