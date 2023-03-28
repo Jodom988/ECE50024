@@ -12,6 +12,7 @@ predictions-deepface-vgg:
 predictions-deepface-facenet:
     Need to submit
     Used deepface's Facenet model with every img/person in DB
+    About 300 images were unknown, used VGG to predict those
 
 transfer_vgg_1:
     Done with cropped closest dataset
