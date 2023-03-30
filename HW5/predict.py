@@ -20,6 +20,7 @@ def load_normalize_img(path, policy):
     img = pil_to_cv2(original_img)
 
     face = None
+    none_found = False
     if policy == 'multiple':
         face = extract_all_faces(img)
     else:
@@ -27,6 +28,7 @@ def load_normalize_img(path, policy):
     
     if face is None:
         # Could not extract face, just use original image
+        none_foune = True
         img = cv2_to_pil(img)
         width, height = img.size
         if width < height:
@@ -42,7 +44,7 @@ def load_normalize_img(path, policy):
         v_border = (IM_SIZE[1] - new_height) // 2
         img = ImageOps.expand(img, border=(h_border, v_border, h_border, v_border), fill=(0, 0, 0))
         img = img.resize((IM_SIZE[0], IM_SIZE[1]))
-        return [img]
+        return ([img], none_found)
     
     imgs = None
     if policy == 'multiple':
@@ -71,20 +73,26 @@ def load_normalize_img(path, policy):
     #         input()
     
 
-    return imgs
+    return (imgs, none_found)
 
 def load_imgs(img_dir, policy):
     data = list()
     files = os.listdir(img_dir)
+    none_found_ct = 0
     for img_name in tqdm(files, desc="Loading images"):
         img_path = os.path.join(img_dir, img_name)
         # print(img_path)
 
-        imgs = load_normalize_img(img_path, policy)
+        imgs, none_found = load_normalize_img(img_path, policy)
+
+        if none_found:
+            none_found_ct += 1
         imgs = [np.array(img) for img in imgs]
             
         img_name = os.path.splitext(img_name)[0]
         data.append((imgs, img_name))
+
+    print("None found for %d, (%.2f)" % (none_found_ct, none_found_ct / len(files)))
 
     return data
 

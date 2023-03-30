@@ -19,6 +19,8 @@ import tensorflow.keras as keras
 from tensorflow.keras import layers
 from keras_vggface.vggface import VGGFace
 
+from keras_facenet import FaceNet
+
 
 IM_SIZE = (224, 224, 3)
 MODEL_BASENAME = "transfer"
@@ -236,7 +238,10 @@ def train_model(model, train_data, test_data, batch_size = 64, num_batches = 25,
         if not old_imgs_load_thread.is_alive():
             break
 
-def get_model():
+def get_model_facenet():
+    facenet_base = FaceNet()
+
+def get_model_vgg():
     vggface_base = VGGFace(model='resnet50', include_top=False, input_shape=IM_SIZE)
     vggface_base.trainable = False
 
@@ -246,7 +251,8 @@ def get_model():
     inputs = tf.keras.Input(shape=IM_SIZE)
     x = vggface_base(inputs)
     x = layers.Flatten(name='flatten')(x)
-    out = layers.Dense(N_LABELS, name='Classifier')(x)
+    out = layers.Dense(1024, name='Classifier', activation='relu')(x)
+    out = layers.Dense(N_LABELS, name='Classifier', activation='softmax')(x)
     model = keras.Model(inputs, out)
     
     model.summary()
@@ -317,7 +323,7 @@ def main():
             lines = [float(l) for l in lines]
             best_acc = max(lines)
     else:    
-        model = get_model()
+        model = get_model_vgg()
         data_idx = 0
         best_acc = 0
 

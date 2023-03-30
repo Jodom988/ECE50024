@@ -8,7 +8,7 @@ from tqdm import tqdm
 import numpy as np
 import cv2
 
-MODEL = "Facenet"
+MODEL = "Facenet512"
 
 def get_identity_from_path(path):
     identity = path.split("/")[-1].split(".")[0]
@@ -21,7 +21,7 @@ def get_identity_distance_dict(dfs):
         for i in range(len(df)):
             ident = get_identity_from_path(df['identity'][i])
             # dist = df['VGG-Face_euclidean_l2'][i]
-            dist = df['Facenet_euclidean_l2'][i]
+            dist = df['Facenet512_euclidean_l2'][i]
             
             if ident in name_dists:
                 name_dists[ident].append(dist)

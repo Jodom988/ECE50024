@@ -6,13 +6,17 @@ Overall notes:
     From cropping single strat: Train missed 24.9515%, test missed 25.2013%
 
 predictions-deepface-vgg:
-    Submitted and got ~52% accuracy
+    Submitted and got ~52.1% accuracy
     Used deepface's VGGFace model with ~200 imgs/person in DB
 
 predictions-deepface-facenet:
-    Need to submit
+    Submitted and got ~60.0% accuracy
     Used deepface's Facenet model with every img/person in DB
     About 300 images were unknown, used VGG to predict those
+
+predictions-deepface-facenet512:
+    Submitted and got ~61.9% accuracy
+    Used deepface's Facenet512 model with every img/person in DB
 
 transfer_vgg_1:
     Done with cropped closest dataset
@@ -49,6 +53,39 @@ transfer_vgg_4:
 transfer_vgg_5:
     Same as transfer_1 but using cropped_single dataset
     Best one yet!! Max accurracy of 36% with test dataset, submitted to Kaggle and got 29.6%
+
+transfer_vgg_6:
+    using cropped_single dataset
+    Added activation function and dense hidden layer with relu activation
+        WOW! This made a huge difference, this might be better than using the deepface models
+
+    Max Accuracy of 76.29 (did not finish training, still improving)
+    Need to submit predictions to Kaggle
+
+    def get_model():
+        vggface_base = VGGFace(model='resnet50', include_top=False, input_shape=IM_SIZE)
+        vggface_base.trainable = False
+
+        last_layer = vggface_base.get_layer('avg_pool').output
+
+        # # Build the model
+        inputs = tf.keras.Input(shape=IM_SIZE)
+        x = vggface_base(inputs)
+        x = layers.Flatten(name='flatten')(x)
+        out = layers.Dense(1024, name='Classifier', activation='relu')(x)
+        out = layers.Dense(N_LABELS, name='Classifier', activation='softmax')(x)
+        model = keras.Model(inputs, out)
+        
+        model.summary()
+
+        model.compile(optimizer='adam',
+                loss=tf.keras.losses.CategoricalCrossentropy(),
+                metrics=['accuracy'])
+        
+        return model
+
+
+
 
 cropped_1:
     Using copped data for this run, doing 128x128 B/W images 

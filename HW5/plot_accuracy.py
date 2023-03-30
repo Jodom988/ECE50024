@@ -42,7 +42,7 @@ def main():
     print("Max accuracy: %.2f" % (max_acc))
 
     epochs = np.arange(1, len(train_acc) + 1)
-    smooth_window = len(train_acc) // 25 + 1
+    smooth_window = len(train_acc) // 20 + 1
         
     smoothed_epochs, smoothed_train_acc = smooth_data(epochs, train_acc, window_size=smooth_window)
 
@@ -51,11 +51,13 @@ def main():
     # ax.plot([epochs[0], epochs[-1]], [1, 1], 'r--')
     ax.set_ybound((0, None))
     ax.grid(True)
+    ax.semilogx()
     ax = plt.subplot(2, 1, 2)
     ax.plot(smoothed_epochs, smoothed_train_acc)
     # ax.plot([epochs[0], epochs[-1]], [1, 1], 'r--')
     ax.set_ybound((0, None))
     ax.grid(True)
+    ax.semilogx()
     # plt.show()
     plt.savefig("accuracy.png")
     
