@@ -1,5 +1,7 @@
 import argparse
 import os
+import threading
+import queue
 
 from tqdm import tqdm
 from PIL import Image, ImageOps
@@ -7,16 +9,26 @@ import tensorflow as tf
 import numpy as np
 import cv2
 
+
 from common import extract_best_face, extract_all_faces, pil_to_cv2, cv2_to_pil, label_name_mapping
 
 IM_SIZE = (224, 224, 3)
 
-def load_normalize_img(path, policy):
-    if (os.path.exists(path) == False):
-        print("ERROR: Path does not exist: " + path)
-        return None
+def load_imgs_async(fpaths, img_q):
+    for fpath in fpaths:
+        if (os.path.exists(fpath) == False):
+            print("ERROR: Path does not exist: " + fpath)
+            img_q.put(None)
+            return
 
-    original_img = Image.open(path)
+        original_img = Image.open(fpath)
+        img_q.put(original_img)
+
+
+
+# img is a PIL image
+def normalize_img(original_img, policy):
+
     img = pil_to_cv2(original_img)
 
     face = None
@@ -75,15 +87,21 @@ def load_normalize_img(path, policy):
 
     return (imgs, none_found)
 
-def load_imgs(img_dir, policy):
+def load_imgs_from_dir(img_dir, policy):
+    
+    img_paths = [os.path.join(img_dir, img_name) for img_name in os.listdir(img_dir)]
+
+    img_q = queue.Queue()
+    read_img_disk_thread = threading.Thread(target=load_imgs_async, args=(img_paths, img_q))
+    read_img_disk_thread.start()
+
     data = list()
     files = os.listdir(img_dir)
     none_found_ct = 0
     for img_name in tqdm(files, desc="Loading images"):
-        img_path = os.path.join(img_dir, img_name)
-        # print(img_path)
+        img = img_q.get()
 
-        imgs, none_found = load_normalize_img(img_path, policy)
+        imgs, none_found = normalize_img(img, policy)
 
         if none_found:
             none_found_ct += 1
@@ -92,7 +110,7 @@ def load_imgs(img_dir, policy):
         img_name = os.path.splitext(img_name)[0]
         data.append((imgs, img_name))
 
-    print("None found for %d, (%.2f)" % (none_found_ct, none_found_ct / len(files)))
+    print("None found for %d, (%.2f)" % (none_found_ct, none_found_ct / len(img_paths)))
 
     return data
 
@@ -168,7 +186,7 @@ def main():
         print("ERROR: Invalid policy")
         return
     
-    faces = load_imgs(args.img_dir, args.policy)
+    faces = load_imgs_from_dir(args.img_dir, args.policy)
 
     model = tf.keras.models.load_model(args.model_dir)
     model.summary()

@@ -59,7 +59,7 @@ transfer_vgg_6:
     Added activation function and dense hidden layer with relu activation
         WOW! This made a huge difference, this might be better than using the deepface models
 
-    Max Accuracy of 76.29 (did not finish training, still improving)
+    Max Accuracy of 79.14 (did not finish training, still improving when stopped)
     Need to submit predictions to Kaggle
 
     def get_model():
