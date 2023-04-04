@@ -5,6 +5,58 @@ Overall notes:
     From cropping center/largest strats: Train missed 10.8337%, test missed 10.6557%
     From cropping single strat: Train missed 24.9515%, test missed 25.2013%
 
+    From creating VGG embeddings: 
+        Test: 768 (15%) had multiple faces found
+        train_train: 8919 (16%) had multiple faces found
+        train_test: 2245 (16%) had multiple faces found
+
+deepface_embeddings_1:
+    Had about 70 and got about 70
+
+    Trained with lots of different batch sizes
+    def get_model():
+        model = models.Sequential()
+        model.add(layers.Input(INPUT_VECTOR_SHAPE))
+        model.add(layers.Dense(2048, activation='relu'))
+        model.add(layers.Dense(100, activation='softmax'))
+
+        model.summary()
+        model.compile(optimizer='adam',
+                loss=tf.keras.losses.CategoricalCrossentropy(),
+                metrics=['accuracy'])
+
+        return model
+
+deepface_embeddings_2:
+    Seemed like it was about the same as deepface_embeddings_1
+    def get_model():
+        model = models.Sequential()
+        model.add(layers.Input(INPUT_VECTOR_SHAPE))
+        model.add(layers.Dense(2048, activation='relu'))
+        model.add(layers.Dense(1024, activation='relu'))
+        model.add(layers.Dense(100, activation='softmax'))
+
+        model.summary()
+        model.compile(optimizer='adam',
+                loss=tf.keras.losses.CategoricalCrossentropy(),
+                metrics=['accuracy'])
+
+        return model
+
+deepface_embeddings_3
+    
+    def get_model():
+        model = models.Sequential()
+        model.add(layers.Input(INPUT_VECTOR_SHAPE))
+        model.add(layers.Dense(100, activation='softmax'))
+
+        model.summary()
+        model.compile(optimizer='adam',
+                loss=tf.keras.losses.CategoricalCrossentropy(),
+                metrics=['accuracy'])
+
+        return model
+
 predictions-deepface-vgg:
     Submitted and got ~52.1% accuracy
     Used deepface's VGGFace model with ~200 imgs/person in DB
@@ -84,8 +136,31 @@ transfer_vgg_6:
         
         return model
 
+transfer_vgg_7:
+    Tried with a larger model, didn't really have any changes
+    Around 4500 batches, added training data that was distorted
+    def get_model_vgg():
+        vggface_base = VGGFace(model='resnet50', include_top=False, input_shape=IM_SIZE)
+        vggface_base.trainable = False
 
+        last_layer = vggface_base.get_layer('avg_pool').output
 
+        # # Build the model
+        inputs = tf.keras.Input(shape=IM_SIZE)
+        x = vggface_base(inputs)
+        x = layers.Flatten(name='flatten')(x)
+        x = layers.Dense(2048, name='hidden1', activation='relu')(x)
+        x = layers.Dense(1024, name='hidden2', activation='relu')(x)
+        out = layers.Dense(N_LABELS, name='Classifier', activation='softmax')(x)
+        model = keras.Model(inputs, out)
+        
+        model.summary()
+
+        model.compile(optimizer='adam',
+                loss=tf.keras.losses.CategoricalCrossentropy(),
+                metrics=['accuracy'])
+        
+        return model
 
 cropped_1:
     Using copped data for this run, doing 128x128 B/W images 

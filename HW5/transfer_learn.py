@@ -134,7 +134,22 @@ def update_checkpoint(model, data_idx):
     model.save(checkpoint_dir)
 
 
+def save_best_model(model_q):
+    while True:
+        model = model_q.get()
+        if model is None:
+            return
+        dir = os.path.join("models", "%s" % (MODEL_BASENAME))
+        dir = os.path.join(dir, "best_model")
+        model.save(dir)
+
+
+
 def train_model(model, train_data, test_data, batch_size = 64, num_batches = 25, data_idx = 0, pct_test = .5, init_best_acc = 0.0):
+
+    best_model_q = Queue()
+    save_Best_model_thread = threading.Thread(target=save_best_model, args=(best_model_q,))
+    save_Best_model_thread.start()
 
     new_img_q = Queue(maxsize=4096)
     stop_new_img_q_event = threading.Event()
@@ -166,13 +181,14 @@ def train_model(model, train_data, test_data, batch_size = 64, num_batches = 25,
             train_imgs = np.array(train_imgs)
             train_labels = np.array(train_labels)
 
-            model.fit(train_imgs, train_labels, verbose=3)
-
             # Load old images to train the model on to avoid catestrophic forgetting
-            train_imgs, train_labels = load_imgs_from_queue(old_img_q, batch_size)
-            train_imgs = np.array(train_imgs)
-            train_labels = np.array(train_labels)
-            
+            train_imgs_old, train_labels_old = load_imgs_from_queue(old_img_q, batch_size)
+            train_imgs_old = np.array(train_imgs_old)
+            train_labels_old = np.array(train_labels_old)
+
+            train_imgs = np.vstack([train_imgs, train_imgs_old])
+            train_labels = np.vstack([train_labels, train_labels_old])
+
             model.fit(train_imgs, train_labels, verbose=3)
 
             # Evaluate the model
@@ -195,10 +211,10 @@ def train_model(model, train_data, test_data, batch_size = 64, num_batches = 25,
 
             # Save the model accordingly and update stats
             if best_acc < test_acc:
+                print("Found better accuracy: %f" % (test_acc))
                 best_acc = test_acc
-                dir = os.path.join("models", "%s" % (MODEL_BASENAME))
-                dir = os.path.join(dir, "best_model")
-                model.save(dir)
+                best_clone = tf.keras.models.clone_model(model)
+                best_model_q.put(best_clone)
                 
             fname = os.path.join("models", "%s" % (MODEL_BASENAME))
             fname = os.path.join(fname, "accuracies.txt")
@@ -219,10 +235,11 @@ def train_model(model, train_data, test_data, batch_size = 64, num_batches = 25,
     update_checkpoint(model, data_idx)
     stop_new_img_q_event.set()
     stop_old_img_q_event.set()
+    best_model_q.put(None)
 
     # Close the new image getter thread
     while True:
-        print("Attempting join...")
+        print("Attempting join... (1/3)")
         for _ in range(new_img_q.qsize()):
             new_img_q.get(timeout=.1)
         new_imgs_load_thread.join(timeout=.5)
@@ -231,15 +248,21 @@ def train_model(model, train_data, test_data, batch_size = 64, num_batches = 25,
     
     # Close the old image getter thread
     while True:
-        print("Attempting join...")
+        print("Attempting join... (2/3)")
         for _ in range(old_img_q.qsize()):
             old_img_q.get(timeout=.1)
         old_imgs_load_thread.join(timeout=.5)
         if not old_imgs_load_thread.is_alive():
             break
 
+    print("Attempting join... (3/3)")
+    save_Best_model_thread.join()
+
 def get_model_facenet():
-    facenet_base = FaceNet()
+    print("Reading facenet_keras.h5...")
+    facenet_base = keras.models.load_model('models/facenet_keras.h5')
+
+    facenet_base.summary()
 
 def get_model_vgg():
     vggface_base = VGGFace(model='resnet50', include_top=False, input_shape=IM_SIZE)
@@ -251,7 +274,8 @@ def get_model_vgg():
     inputs = tf.keras.Input(shape=IM_SIZE)
     x = vggface_base(inputs)
     x = layers.Flatten(name='flatten')(x)
-    out = layers.Dense(1024, name='Classifier', activation='relu')(x)
+    x = layers.Dense(2048, name='hidden1', activation='relu')(x)
+    x = layers.Dense(1024, name='hidden2', activation='relu')(x)
     out = layers.Dense(N_LABELS, name='Classifier', activation='softmax')(x)
     model = keras.Model(inputs, out)
     
@@ -263,50 +287,20 @@ def get_model_vgg():
     
     return model
 
-def fliter_data(data, labels_to_keep):
-    new_data = []
-    not_used = []
-    lens = dict()
-    for d in data:
-        if d[1] in labels_to_keep:
-            new_data.append(d)
-            if d[1] not in lens:
-                lens[d[1]] = 1
-            else:
-                lens[d[1]] += 1
-        else:
-            d = (d[0], N_LABELS-1, d[2])
-            not_used.append(d)
-
-    lens_l = [items for _, items in lens.items()]
-    av = int(np.mean(lens_l))
-
-    random.shuffle(not_used)
-    for i in range(min(av, len(not_used))):
-        rand_idx_to = random.randint(0, len(new_data) - 1)
-        new_data.insert(rand_idx_to, not_used[i])
-
-    return new_data
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('train_csv', help='CSV with filepaths and labels')
     parser.add_argument('test_csv', help='CSV with filepaths and labels')
-    parser.add_argument('img_dir', help='Directory with images')
+    parser.add_argument('train_img_dir', help='Directory with images')
+    parser.add_argument('test_img_dir', help='Directory with images')
     parser.add_argument('-b' '--batch_size', help='Batch size for training', default=1024, type=int)
     parser.add_argument('-n' '--num_batches', help='Number of ephocs', default=25, type=int)
     parser.add_argument('-p' '--pct_test_data', help='Percent of test data to use', default=None, type=int)
 
     args = parser.parse_args()
 
-    train_data = read_label_csv(args.train_csv, args.img_dir)
-    test_data = read_label_csv(args.test_csv, args.img_dir)
-    
-    if N_LABELS < 100:
-        start_idx = 0
-        keep = list(range(start_idx, N_LABELS-1))
-        train_data = fliter_data(train_data, keep)
-        test_data = fliter_data(test_data, keep)
+    train_data = read_label_csv(args.train_csv, args.train_img_dir)
+    test_data = read_label_csv(args.test_csv, args.test_img_dir)
 
     if args.p__pct_test_data:
         print("TRIMMING TEST DATA")

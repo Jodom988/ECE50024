@@ -1,4 +1,5 @@
 import os
+import random
 
 import cv2
 from PIL import Image, ImageOps
@@ -49,6 +50,8 @@ def read_label_csv(fname, img_dir):
         name = name.strip()
         label = name_to_label[name]        
         data.append((path, label, name))
+
+    random.shuffle(data)
 
     return data
 
@@ -178,7 +181,7 @@ def extract_best_face(img, policy = 'closest_to_center'):
         return None
     
     new_img = crop_extend_img(img, bounding_box)
-    new_img = cv2.resize(new_img, (128, 128))
+    new_img = cv2.resize(new_img, (224, 224))
 
     return new_img
 
