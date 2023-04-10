@@ -7,8 +7,12 @@ Overall notes:
 
     From creating VGG embeddings: 
         Test: 768 (15%) had multiple faces found
-        train_train: 8919 (16%) had multiple faces found
-        train_test: 2245 (16%) had multiple faces found
+        train_train_vgg: 8919 (16%) had multiple faces found
+        train_test_vgg: 2245 (16%) had multiple faces found
+
+        train_train_vgg_facenet512: 16% were not able to find single face
+        train_test_vgg_facenet512: 16% were not able to find single face
+
 
 deepface_embeddings_1:
     Had about 70 and got about 70
@@ -44,7 +48,7 @@ deepface_embeddings_2:
         return model
 
 deepface_embeddings_3
-    
+
     def get_model():
         model = models.Sequential()
         model.add(layers.Input(INPUT_VECTOR_SHAPE))
@@ -56,6 +60,94 @@ deepface_embeddings_3
                 metrics=['accuracy'])
 
         return model
+
+deepface_embeddings_4
+    Used skip connections
+    Did batch size of 64 until end and then did 1024
+    def get_model():
+        inputs = layers.Input(INPUT_VECTOR_SHAPE)
+        x = layers.Dense(1024, activation='relu')(inputs)
+        x = layers.Concatenate(axis=1)([inputs, x])
+        y = layers.Dense(100, activation='softmax')(x)
+
+        model = keras.Model(inputs, y)
+
+        model.summary()
+        model.compile(optimizer='adam',
+                loss=tf.keras.losses.CategoricalCrossentropy(),
+                metrics=['accuracy'])
+
+        return model
+
+deepface_embeddings_5:
+    Same as deepface_embeddings_4 but used batch size of 2048
+
+deepface_embeddings_6:
+    Same as deepface_embeddings_5 but used activation of sigmoid
+
+deepface_embeddings_7:
+    Same as deepface_embeddings_6 but used activation of leakyrelu
+
+deepface_embeddings_8:
+    Used batch size of 4096
+    def get_model():
+    inputs = layers.Input(INPUT_VECTOR_SHAPE)
+        x1 = layers.Dense(2048)(inputs)
+        x2 = layers.LeakyReLU(alpha=0.05)(x1)
+        x3 = layers.Concatenate(axis=1)([inputs, x2])
+        x4 = layers.Dense(2048, activation='sigmoid')(x3)
+        y = layers.Dense(100, activation='softmax')(x4)
+
+        model = keras.Model(inputs, y)
+
+        model.summary()
+        model.compile(optimizer='adam',
+                loss=tf.keras.losses.CategoricalCrossentropy(),
+                metrics=['accuracy'])
+
+        return model
+
+deepface_embeddings_9:
+    def get_model():
+        inputs = layers.Input(INPUT_VECTOR_SHAPE)
+        x1 = layers.Dense(2048)(inputs)
+        x2 = layers.LeakyReLU(alpha=0.05)(x1)
+        x3 = layers.Concatenate(axis=1)([inputs, x2])
+        x4 = layers.Dense(2048, activation='sigmoid')(x3)
+        x5 = layers.Concatenate(axis=1)([x4, x3])
+        y = layers.Dense(100, activation='softmax')(x5)
+
+        model = keras.Model(inputs, y)
+
+        model.summary()
+        model.compile(optimizer='adam',
+                loss=tf.keras.losses.CategoricalCrossentropy(),
+                metrics=['accuracy'])
+
+        return model
+    
+deepface_embeddings_10:
+    def get_model():
+        inputs = layers.Input(INPUT_VECTOR_SHAPE)
+        x1 = layers.Dense(2048)(inputs)
+        
+        x2 = layers.LeakyReLU(alpha=0.05)(x1)
+        x3 = layers.Concatenate(axis=1)([inputs, x2])
+        
+        x4 = layers.Dense(2048, activation='sigmoid')(x3)
+        x5 = layers.Concatenate(axis=1)([x4, x3])
+        
+        x6 = layers.Dense(2048, activation='relu')(x5)
+        x7 = layers.Concatenate(axis=1)([x6, x5])
+        
+        y = layers.Dense(100, activation='softmax')(x7)
+
+        model = keras.Model(inputs, y)
+
+        model.summary()
+        model.compile(optimizer='adam',
+                loss=tf.keras.losses.CategoricalCrossentropy(),
+                metrics=['accuracy'])
 
 predictions-deepface-vgg:
     Submitted and got ~52.1% accuracy
@@ -161,6 +253,10 @@ transfer_vgg_7:
                 metrics=['accuracy'])
         
         return model
+
+transfer_vgg_8:
+    Using model from transfer_vgg_6, 19,144 batches have gone through, training ENTIRE model now
+    
 
 cropped_1:
     Using copped data for this run, doing 128x128 B/W images 

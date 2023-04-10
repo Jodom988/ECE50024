@@ -6,6 +6,8 @@ from PIL import Image, ImageOps
 from tqdm import tqdm
 import numpy as np
 import dlib
+from deepface import DeepFace
+
 
 def label_name_mapping(fname = '../data/HW5/category.csv'):
     with open(fname, 'r') as f:
@@ -35,7 +37,7 @@ def name_label_mapping(fname = '../data/HW5/category.csv'):
 
     return name_to_label
 
-def read_label_csv(fname, img_dir):
+def read_label_csv(fname, img_dir, randomize=False):
     with open(fname, 'r') as f:
         lines = f.readlines()
 
@@ -51,7 +53,8 @@ def read_label_csv(fname, img_dir):
         label = name_to_label[name]        
         data.append((path, label, name))
 
-    random.shuffle(data)
+    if randomize == True:
+        random.shuffle(data)
 
     return data
 
@@ -92,28 +95,29 @@ DETECTOR = dlib.get_frontal_face_detector()     # Has about 11% cases where it f
 # Expects an openCV image and returns the bounding box of the face (x1, y1, w, h)
 def get_all_face_bounds(img, extend=0.50):
 
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    faces = DETECTOR(gray, 1) # results
+    if method == 'dlib':
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        faces = DETECTOR(gray, 1) # results
 
-    results = []
+        results = []
 
-    for result in faces:
-        x1 = result.left()
-        x2 = result.right()
-        y1 = result.top()
-        y2 = result.bottom()
-        w = x2 - x1
-        h = y2 - y1
-        x1 += int(-extend * w)
-        x2 += int(extend * w)
-        y1 += int(-extend * h)
-        y2 += int(extend * h)
-        w = x2 - x1
-        h = y2 - y1
+        for result in faces:
+            x1 = result.left()
+            x2 = result.right()
+            y1 = result.top()
+            y2 = result.bottom()
+            w = x2 - x1
+            h = y2 - y1
+            x1 += int(-extend * w)
+            x2 += int(extend * w)
+            y1 += int(-extend * h)
+            y2 += int(extend * h)
+            w = x2 - x1
+            h = y2 - y1
 
-        result = (x1, y1, x2-x1, y2-y1)
+            result = (x1, y1, x2-x1, y2-y1)
 
-        results.append(result)
+            results.append(result)
 
     return results
 

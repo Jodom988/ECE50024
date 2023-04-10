@@ -1,12 +1,18 @@
 import os
 import argparse
 from tqdm import tqdm
-import cv2
 
 from deepface import DeepFace
 from common import read_label_csv
+import tensorflow as tf
 
 MODEL = "VGG-Face"
+
+checkpoint_fname = "deepface_embeddings_checkpoint.txt"
+
+physical_devices = tf.config.experimental.list_physical_devices('GPU')
+for i in physical_devices:
+    tf.config.experimental.set_memory_growth(i, True)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -24,33 +30,41 @@ def main():
     else:
         imgs = [(os.path.join(img_dir, fname), None, None) for fname in os.listdir(img_dir)]
 
-    found_multiple = 0
-    found_none = 0
+    last_idx_written = -1
+    with open(checkpoint_fname, 'r') as f:
+        last_idx_written = int(f.read().strip())
+    print("Starting from index %d" % (last_idx_written + 1))
+
+    idx = 0
     for img in tqdm(imgs):
+        if idx <= last_idx_written:
+            idx += 1
+            continue
+
         img_path = img[0]
         label = img[1]
 
-        embedding_objs = DeepFace.represent(img_path, model_name=MODEL, enforce_detection=False)
+        embedding_obj = None
+        try:
+            embedding_obj = DeepFace.represent(img_path, model_name=MODEL)
+        except ValueError:
+            continue
+        #embedding_objs_2 = DeepFace.represent(img_path, model_name="Facenet512")
 
-        if (len(embedding_objs) == 1):
-            vector = embedding_objs[0]['embedding']
+        if len(embedding_obj) == 1:
+            vector = embedding_obj[0]['embedding']
+            # vector_2 = embedding_objs_2[0]['embedding']
+            # vector = vector_1 + vector_2
             with open(out_csv, 'a') as f:
                 if label is not None:
                     f.write("%d," % label)
 
                 f.write(",".join([str(x) for x in vector]) + "\n")
-        elif (len(embedding_objs) >= 1):
-            found_multiple += 1
-        elif (len(embedding_objs) == 0):
-            found_none += 1
-        else:
-            print("ERROR: Invalid number of embeddings")
 
-    print("Found multiple: %d (%.2f)" % (found_multiple, found_multiple / len(imgs)))
-    print("Found none: %d (%.2f)" % (found_none, found_none / len(imgs)))
-    print("Total: %d" % len(imgs))
+        with open(checkpoint_fname, 'w') as f:
+            f.write(str(idx))
 
-
+        idx += 1
 
 if __name__ == '__main__':
     main()

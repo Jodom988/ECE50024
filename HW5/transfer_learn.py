@@ -308,6 +308,7 @@ def main():
 
     if os.path.exists("models/transfer/checkpoint_model"):
         model = tf.keras.models.load_model("models/transfer/checkpoint_model")
+        model.trainable = True
         with open("models/transfer/num_data_read.txt", "r") as f:
             data_idx = int(f.read())
             print("Found checkpoint. Resuming training from data index %d" % (data_idx))

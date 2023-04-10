@@ -18,10 +18,14 @@ import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import layers, models
 
-INPUT_VECTOR_SHAPE = (2622)
+INPUT_VECTOR_SHAPE = 2622
 N_LABELS = 100
 
 MODEL_BASENAME = "deepface_embeddings"
+
+physical_devices = tf.config.experimental.list_physical_devices('GPU')
+for i in physical_devices:
+    tf.config.experimental.set_memory_growth(i, True)
 
 def read_embeddings_csv(fname):
     with open(fname, 'r') as f:
@@ -30,8 +34,6 @@ def read_embeddings_csv(fname):
     labels = []
     data = []
     for i, line in tqdm(list(enumerate(lines))):
-        if i == 0:
-            continue
         parts = line.split(',')
 
         cat = int(parts[0])
@@ -42,6 +44,8 @@ def read_embeddings_csv(fname):
 
         labels.append(label)
         data.append(vector)
+
+        
 
 
     labels = np.array(labels)
@@ -68,10 +72,12 @@ def save_best_model(model_q):
     while True:
         model = model_q.get()
         if model is None:
-            return
+            break
         dir = os.path.join("models", "%s" % (MODEL_BASENAME))
         dir = os.path.join(dir, "best_model")
+        print("Saving best model to %s" % (dir))
         model.save(dir)
+    print("Exiting save_best_model thread")
 
 def get_batch(data, labels, batch_size, data_idx):
     data_idx = data_idx % data.shape[0]
@@ -100,9 +106,14 @@ def train_model(model, train_data, train_labels, test_data, test_labels, batch_s
             
             batch_data, batch_labels = get_batch(train_data, train_labels, batch_size, data_idx)
 
-            model.fit(batch_data, batch_labels, verbose=3)
+            rtn = model.fit(batch_data, batch_labels, verbose=3)
 
-            test_loss, test_acc = model.evaluate(test_data, test_labels, verbose=0, batch_size=batch_size)
+            if test_data is None:
+                test_loss, test_acc = None, None
+            else:
+                test_loss, test_acc = model.evaluate(test_data, test_labels, verbose=0, batch_size=batch_size)
+            
+            train_data_loss, train_data_acc = model.evaluate(train_data, train_labels, verbose=0, batch_size=batch_size)
 
             # Call this to free up memory
             gc.collect()
@@ -111,17 +122,25 @@ def train_model(model, train_data, train_labels, test_data, test_labels, batch_s
             # Update how much data we've seen
             data_idx += batch_size
 
-            # Save the model accordingly and update stats
-            if best_acc < test_acc:
-                print("Found better accuracy: %f" % (test_acc))
-                best_acc = test_acc
-                best_clone = tf.keras.models.clone_model(model)
-                best_model_q.put(best_clone)
-                
+            
+            
+            if test_acc is not None:
+                # Save the model accordingly and update stats
+                if best_acc < test_acc:
+                    print("Found better accuracy: %f" % (test_acc))
+                    best_acc = test_acc
+                    best_clone = tf.keras.models.clone_model(model)
+                    best_model_q.put(best_clone)
+                    
+                fname = os.path.join("models", "%s" % (MODEL_BASENAME))
+                fname = os.path.join(fname, "accuracies.txt")
+                with open(fname, "a") as f:
+                    f.write("%f\n" % (test_acc))
+
             fname = os.path.join("models", "%s" % (MODEL_BASENAME))
-            fname = os.path.join(fname, "accuracies.txt")
+            fname = os.path.join(fname, "accuracies_train.txt")
             with open(fname, "a") as f:
-                f.write("%f\n" % (test_acc))
+                f.write("%f\n" % (train_data_acc))
 
             if idx % 50 == 0:
                 update_checkpoint(model, data_idx)
@@ -143,9 +162,12 @@ def train_model(model, train_data, train_labels, test_data, test_labels, batch_s
 
 def get_model():
     inputs = layers.Input(INPUT_VECTOR_SHAPE)
-    x = layers.Dense(1024, activation='relu')(inputs)
-    x = layers.Concatenate(axis=1)([inputs, x])
-    y = layers.Dense(100, activation='softmax')(x)
+    x1 = layers.Dense(2048)(inputs)
+    x2 = layers.LeakyReLU(alpha=0.05)(x1)
+    x3 = layers.Concatenate(axis=1)([inputs, x2])
+    x4 = layers.Dense(2048, activation='sigmoid')(x3)
+    x5 = layers.Concatenate(axis=1)([x4, x3])
+    y = layers.Dense(100, activation='softmax')(x5)
 
     model = keras.Model(inputs, y)
 
@@ -156,6 +178,21 @@ def get_model():
 
     return model
 
+def split_test_train(data, labels, pct_test):
+    if pct_test == 0:
+        return data, labels, None, None
+    
+    num_test = int(data.shape[0] * pct_test)
+    num_train = data.shape[0] - num_test
+
+    train_data = data[:num_train, :]
+    train_labels = labels[:num_train]
+
+    test_data = data[num_train:, :]
+    test_labels = labels[num_train:]
+
+    return train_data, train_labels, test_data, test_labels
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('train_csv', help='CSV with filepaths and labels')
@@ -165,7 +202,11 @@ def main():
     args = parser.parse_args()
 
     train_data, train_labels = read_embeddings_csv(args.train_csv)
-    test_data, test_labels = read_embeddings_csv(args.test_csv)
+
+    if args.test_csv == 'none':
+        train_data, train_labels, test_data, test_labels = split_test_train(train_data, train_labels, 0)
+    else:
+        test_data, test_labels = read_embeddings_csv(args.test_csv)
 
     # test_data = read_embeddings_csv(args.test_csv)
 
@@ -175,10 +216,11 @@ def main():
             data_idx = int(f.read())
             print("Found checkpoint. Resuming training from data index %d" % (data_idx))
 
-        with open("models/transfer/accuracies.txt", "r") as f:
+        with open("models/%s/accuracies.txt" % MODEL_BASENAME, "r") as f:
             lines = f.readlines()
             lines = [float(l) for l in lines]
             best_acc = max(lines)
+            print("Last best accuracy: %f" % (best_acc))
     else:    
         model = get_model()
         data_idx = 0
