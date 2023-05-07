@@ -11,6 +11,7 @@ from tensorflow.keras import layers
 IM_SHAPE = (28, 28, 1)
 LATENT_DIM = 100
 N_CLASSES = 10
+PROGRESS_FNAME = 'progress.csv'
 
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
 for i in physical_devices:
@@ -39,24 +40,14 @@ def idx_to_one_hot(idxes):
     return one_hot
 
 def get_training_batch(X_img_all, X_label_all, n, generator = None):
-    n = n // 4
+    n = n // 2
 
     # Get samples that are real and labeled correctly
-    idxes = np.random.randint(0, X_img_all.shape[0], n*2)
+    idxes = np.random.randint(0, X_img_all.shape[0], n)
     X_img = X_img_all[idxes]
     X_label = X_label_all[idxes]
 
-    ys = np.ones((n*2, 1)).reshape((n*2, 1))
-
-    # Get samples that are real but labeled incorrectly
-    idxes = np.random.randint(0, X_img_all.shape[0], n)
-    X_img_temp = X_img_all[idxes]
-    X_label_temp = (X_label_all[idxes] + np.random.randint(1, 10, n)) % 10
-
-    X_img = np.vstack((X_img, X_img_temp))
-    X_label = np.hstack((X_label, X_label_temp))
-    ys = np.vstack((ys, np.zeros((n, 1))))
-
+    ys = np.ones((n, 1)).reshape((n, 1))
 
     # Get samples that are "generated"
     if generator is None:
@@ -82,7 +73,7 @@ def pretrian_discriminator(discriminator, n, X_img_train, X_label_train, X_img_t
     X_img_test, X_label_test, ys_test = get_training_batch(X_img_test, X_label_test, n // 2)
 
     print("Training initial discriminator...")
-    discriminator.fit((X_img_train, X_label_train), ys_train, epochs=5, batch_size=8, shuffle=True, validation_data=((X_img_test, X_label_test), ys_test))
+    discriminator.fit((X_img_train, X_label_train), ys_train, epochs=5, batch_size=32, shuffle=True, validation_data=((X_img_test, X_label_test), ys_test))
     print("Done!")
 
 def train_models(X_img_train, X_label_train, X_img_test, X_label_test, discriminator, generator, batch_size = 1024):
@@ -98,6 +89,7 @@ def train_models(X_img_train, X_label_train, X_img_test, X_label_test, discrimin
 
     print("Starting training...")
     batch_idx = 0
+    data_idx = 0
     while True:
 
         # Train generator
@@ -117,18 +109,19 @@ def train_models(X_img_train, X_label_train, X_img_test, X_label_test, discrimin
         Xs_img, Xs_labels, ys = get_training_batch(X_img_train, X_label_train, batch_size, generator)
 
         discriminator.fit((Xs_img, Xs_labels), ys, epochs=1, batch_size=32, shuffle=True, verbose=3)
+        
+        data_idx += batch_size / 2
 
         # Evaluate models
         Xs_img_test, Xs_labels_test, ys_test = get_training_batch(X_img_test, X_label_test, batch_size, generator)
 
-        loss, acc = discriminator.evaluate((Xs_img_test, Xs_labels_test), ys_test, batch_size=32, verbose=3)
-        print("Discriminator loss: %.2f, accuracy: %.2f" % (loss, acc))
-        loss, acc = full_model.evaluate( (get_latent_space_inputs(batch_size), idx_to_one_hot(np.random.randint(0, 10, batch_size)) ), np.ones((Xs_img_test.shape[0], 1)), batch_size=32, verbose=3)
-        print("Generator loss: %.2f, accuracy: %.2f" % (loss, acc))
-        print("====================================")
+        loss, acc, mae = discriminator.evaluate((Xs_img_test, Xs_labels_test), ys_test, verbose=3)
+        with open(PROGRESS_FNAME, 'a') as f:
+            f.write("%f,%f,%f,%f\n" % (data_idx / X_img_train.shape[0], loss, acc, mae))
+
         # Clear up memory leaks
-        # gc.collect()
-        # tf.keras.backend.clear_session()
+        gc.collect()
+        tf.keras.backend.clear_session()
 
         # Polt some generated samples
         generated_imgs = generator.predict((draw_latent_inputs, draw_label_inputs), verbose=3).reshape((10*draw_rows, IM_SHAPE[0], IM_SHAPE[1]))
@@ -168,34 +161,64 @@ def combine_models(generator, discriminator):
     model.summary()
 
     opt = keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5)
-    model.compile(optimizer=opt, loss='binary_crossentropy', metrics=['accuracy'])
+    model.compile(optimizer=opt, loss='binary_crossentropy', metrics=['accuracy', 'mean_absolute_error'])
 
     return model
 
 def build_generator():
+    leakyrely_alpha = 0.01
+
     inputs_latent = layers.Input(shape=(LATENT_DIM,))
     inputs_class = layers.Input(shape=(N_CLASSES,))
 
     inputs = layers.Concatenate()([inputs_latent, inputs_class])
 
     x = layers.Dense(128)(inputs)
-    skip = layers.LeakyReLU(alpha=0.2)(x)
-    x = layers.Dense(128)(skip)
-    x = layers.LeakyReLU(alpha=0.2)(x)
-    x = layers.Concatenate()([x, skip])
-    x = layers.Dense(128 * 7 * 7)(x)
-    x = layers.LeakyReLU(alpha=0.2)(x)
+    x = layers.LeakyReLU(alpha=leakyrely_alpha)(x)
+    x = layers.BatchNormalization()(x)
+    
+    x = layers.Dense(256)(x)
+    x = layers.LeakyReLU(alpha=leakyrely_alpha)(x)
+    x = layers.BatchNormalization()(x)
 
-    x = layers.Reshape((7, 7, 128))(x)
+    x = layers.Dense(2 * 2 * 512)(x)
+    x = layers.LeakyReLU(alpha=leakyrely_alpha)(x)
+    x = layers.BatchNormalization()(x)
+    
+    x = layers.Reshape((2, 2, 512))(x)
+    x = layers.Conv2DTranspose(256, (2, 2), strides=(2,2))(x)
+    x = layers.LeakyReLU(alpha=leakyrely_alpha)(x)
+    x = layers.BatchNormalization()(x)
+
+    x = layers.Conv2D(256, (2, 2), padding='same')(x)
+    x = layers.LeakyReLU(alpha=leakyrely_alpha)(x)
+    x = layers.BatchNormalization()(x)
+
+    x = layers.Conv2DTranspose(128, (2, 2), strides=(2,2))(x)
+    x = layers.LeakyReLU(alpha=leakyrely_alpha)(x)
+    x = layers.BatchNormalization()(x)
+
+    x = layers.Conv2D(128, (2, 2))(x)
+    x = layers.LeakyReLU(alpha=leakyrely_alpha)(x)
+    x = layers.BatchNormalization()(x)
     
     # Upsample to 14x14
-    x = layers.Conv2DTranspose(256, (4, 4), strides=(2,2), padding='same')(x)
-    x = layers.LeakyReLU(alpha=0.2)(x)
+    x = layers.Conv2DTranspose(128, (3, 3), strides=(2,2), padding='same')(x)
+    x = layers.LeakyReLU(alpha=leakyrely_alpha)(x)
+    x = layers.BatchNormalization()(x)
 
-    # Upsample to 28x28
-    x = layers.Conv2DTranspose(256, (4, 4), strides=(2,2), padding='same')(x)
-    x = layers.LeakyReLU(alpha=0.2)(x)
+    x = layers.Conv2D(128, (2, 2), padding='same')(x)
+    x = layers.LeakyReLU(alpha=leakyrely_alpha)(x)
+    x = layers.BatchNormalization()(x)
 
+    # # Upsample to 28x28
+    x = layers.Conv2DTranspose(128, (3, 3), strides=(2,2), padding='same')(x)
+    x = layers.LeakyReLU(alpha=leakyrely_alpha)(x)
+    x = layers.BatchNormalization()(x)
+
+    x = layers.Conv2D(128, (2, 2), padding='same')(x)
+    x = layers.LeakyReLU(alpha=leakyrely_alpha)(x)
+    x = layers.BatchNormalization()(x)
 
     x = layers.Conv2D(1, (7, 7), padding='same', activation='sigmoid')(x)
 
@@ -203,38 +226,24 @@ def build_generator():
 
     model.summary()
 
+    opt = keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5)
+    model.compile(optimizer=opt, loss='binary_crossentropy', metrics=['accuracy', 'mean_absolute_error'])
+
     return model
 
 def build_discriminator():
+    leakyrely_alpha = 0.01
     class_inputs = layers.Input(shape=(N_CLASSES,))
     img_inputs = layers.Input(shape=IM_SHAPE)
 
-    x = layers.Conv2D(64, (3, 3), padding='same')(img_inputs)
-    skip = layers.LeakyReLU(alpha=0.2)(x)
-    x = layers.Conv2D(128, (3, 3), padding='same')(skip)
-    x = layers.LeakyReLU(alpha=0.2)(x)
-    x = layers.Concatenate()([x, skip])
-    x = layers.MaxPooling2D((2, 2))(x)
-    x = layers.Dropout(0.4)(x)
-
-
-    x = layers.Conv2D(128, (3, 3), padding='same')(x)
-    skip = layers.LeakyReLU(alpha=0.2)(x)
-    x = layers.Conv2D(256, (3, 3), padding='same')(skip)
-    x = layers.LeakyReLU(alpha=0.2)(x)
-    x = layers.Concatenate()([x, skip])
-    x = layers.MaxPooling2D((2, 2))(x)
-    x = layers.Dropout(0.4)(x)
-
-
-    x = layers.Flatten()(x)
+    x = layers.Flatten()(img_inputs)
     x = layers.Concatenate()([x, class_inputs])
     x = layers.Dense(512)(x)
-    x = layers.LeakyReLU(alpha=0.2)(x)
+    x = layers.LeakyReLU(alpha=leakyrely_alpha)(x)
     x = layers.Dense(128)(x)
-    x = layers.LeakyReLU(alpha=0.2)(x)
+    x = layers.LeakyReLU(alpha=leakyrely_alpha)(x)
     x = layers.Dense(16)(x)
-    x = layers.LeakyReLU(alpha=0.2)(x)
+    x = layers.LeakyReLU(alpha=leakyrely_alpha)(x)
     x = layers.Dense(1, activation='sigmoid')(x)
 
     model = keras.Model([img_inputs, class_inputs], x)
@@ -242,7 +251,7 @@ def build_discriminator():
     model.summary()
     
     opt = keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5)
-    model.compile(optimizer=opt, loss='binary_crossentropy', metrics=['accuracy'])
+    model.compile(optimizer=opt, loss='binary_crossentropy', metrics=['accuracy', 'mean_absolute_error'])
     
     return model
 
@@ -263,6 +272,9 @@ def main():
         discriminator = build_discriminator()
         generator = build_generator()
         pretrian_discriminator(discriminator, 8192*2, X_train, y_train, X_test, y_test)
+
+        with open(PROGRESS_FNAME, 'w') as f:
+            f.write('epoch_pct,loss,acc,mae\n')
 
     train_models(X_train, y_train, X_test, y_test, discriminator, generator)
 

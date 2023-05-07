@@ -1,0 +1,70 @@
+trial_7:
+    batch size of 64,
+    method where looped until high enough accuracy
+
+autoencoder_6:
+    added batch normalization to discriminator
+    batch size of 2048
+    minibatch of 256
+    after killed, changed batch size to 1024
+
+autoencoder_5:
+    adding autoencoder encoder to discriminator
+    Helps some, generator still 100% fooling discriminator after every batch
+
+autoencoder_4:
+    added complexity to discriminator
+    noticed after generator, the generator was 100% fooling the discriminator, try adding autoencoder encoder to discriminator
+
+autoencoder_3:
+    realized generator was too good at task, adding complexity to discriminator to make it better hopefully
+
+autoencoder_1:
+    trained overnight, still failed
+
+trial 8:
+    started to kind of work, but wanted to try autoencoder approach
+
+trial 7:
+    messed up model, but kinda good results
+
+trial 6:
+    Same as trial 5, added some extra layers to both generator and discriminator
+    result:
+        seemed to work but converged
+
+trial 5:
+    Same as trial 1 except:
+        Batch size of 16k, minibatch of 256
+        LR = 0.00003
+
+trial 4:
+    Same as trial 1:
+        Using batch size of 16k with minibatch of 256
+    
+    Result:
+        Model failed prior to restarting
+
+
+Trial 3:
+    Same as trial 1 but:
+        Using batch size of 512 with minibatch of 32
+
+    didn't really work, make batch size larger again
+
+Trial 2:
+    Same as trial 1 but:
+        Using batch size of ~1k with minibatch of 32
+    
+    Seemed to work, stopped early. Going even lower for trial 3
+    ~4670 model updates/epoch
+
+    lost trial
+
+trial 1:
+    Learning rate of 0.00007
+    Conditional GAN, conditioned on male and smiling, 126 latent space
+    Image size 32x32
+    started getting good results, ran overnight but then model crashed (around 200 epochs)
+    Used batch size of ~16k with minibatch of 256
+    80-20 training split, ~1,167 model updates/epoch
